@@ -1,0 +1,49 @@
+id: CP-UCC-004
+title: UCC Completeness & PAN/CKYC Format Check
+description: Validates UCC completeness and PAN/CKYC format compliance
+category: ucc
+dataset: ucc
+frequency: daily
+severity: medium
+logic:
+  sql: |
+    SELECT client_id, pan, ckyc_id, phone, email, dp_id, bank_acct
+    FROM ucc
+    WHERE pan IS NULL 
+       OR ckyc_id IS NULL 
+       OR phone IS NULL 
+       OR email IS NULL 
+       OR dp_id IS NULL 
+       OR bank_acct IS NULL
+       OR LENGTH(pan) != 10
+       OR NOT REGEXP_LIKE(pan, '^[A-Z]{5}[0-9]{4}[A-Z]{1}$')
+       OR NOT REGEXP_LIKE(email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+  params: {}
+pass_condition: "result_count = 0"
+evidence:
+  exports:
+    - name: ucc_incomplete_records.csv
+      query: |
+        SELECT client_id, pan, ckyc_id, phone, email, dp_id, bank_acct,
+               CASE 
+                 WHEN pan IS NULL THEN 'Missing PAN'
+                 WHEN ckyc_id IS NULL THEN 'Missing CKYC ID'
+                 WHEN phone IS NULL THEN 'Missing Phone'
+                 WHEN email IS NULL THEN 'Missing Email'
+                 WHEN dp_id IS NULL THEN 'Missing DP ID'
+                 WHEN bank_acct IS NULL THEN 'Missing Bank Account'
+                 WHEN LENGTH(pan) != 10 THEN 'Invalid PAN Length'
+                 WHEN NOT REGEXP_LIKE(pan, '^[A-Z]{5}[0-9]{4}[A-Z]{1}$') THEN 'Invalid PAN Format'
+                 WHEN NOT REGEXP_LIKE(email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') THEN 'Invalid Email Format'
+                 ELSE 'Unknown Error'
+               END as validation_error
+        FROM ucc
+        WHERE pan IS NULL 
+           OR ckyc_id IS NULL 
+           OR phone IS NULL 
+           OR email IS NULL 
+           OR dp_id IS NULL 
+           OR bank_acct IS NULL
+           OR LENGTH(pan) != 10
+           OR NOT REGEXP_LIKE(pan, '^[A-Z]{5}[0-9]{4}[A-Z]{1}$')
+           OR NOT REGEXP_LIKE(email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');

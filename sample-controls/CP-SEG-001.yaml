@@ -1,0 +1,36 @@
+id: CP-SEG-001
+title: Client Funds Segregation (T+0)
+description: Ensures client funds are properly segregated from proprietary funds at T+0
+category: segregation
+dataset: ledger
+frequency: daily
+severity: high
+logic:
+  sql: |
+    WITH balances AS (
+      SELECT client_id,
+             SUM(CASE WHEN ledger_type='CLIENT' THEN amount ELSE 0 END) AS client_bal,
+             SUM(CASE WHEN ledger_type='PROP' THEN amount ELSE 0 END) AS prop_bal
+      FROM ledger
+      WHERE trade_date = :as_of_date
+      GROUP BY client_id
+    )
+    SELECT client_id FROM balances
+    WHERE client_bal < 0 OR prop_bal > 0;
+  params:
+    as_of_date: "2024-01-15"
+pass_condition: "result_count = 0"
+evidence:
+  exports:
+    - name: segregation_breaks.csv
+      query: |
+        WITH balances AS (
+          SELECT client_id,
+                 SUM(CASE WHEN ledger_type='CLIENT' THEN amount ELSE 0 END) AS client_bal,
+                 SUM(CASE WHEN ledger_type='PROP' THEN amount ELSE 0 END) AS prop_bal
+          FROM ledger
+          WHERE trade_date = :as_of_date
+          GROUP BY client_id
+        )
+        SELECT client_id, client_bal, prop_bal FROM balances
+        WHERE client_bal < 0 OR prop_bal > 0;
