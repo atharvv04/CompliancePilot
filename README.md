@@ -577,53 +577,6 @@ CORS_ORIGIN=http://localhost:3000
 - `POST /api/exceptions` - Create exception
 - `PATCH /api/exceptions/:id` - Update exception
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the repository
-- Contact the development team
-- Check the documentation
-
-## 🗺️ Roadmap
-
-### Phase 2 (Post-MVP)
-- **Suitability/Mis-selling pack**: Risk profiling and ongoing monitors
-- **AML-Light**: Sanctions/PEP screening and UBO relationship graphs
-- **Streaming Agent**: Real-time OTR/layering alerts
-- **Policy Studio**: Semi-automated LLM extraction for new circulars
-
-## 💼 Business Impact & Value Proposition
-
-### 🎯 Problem Solved
-
-**Before CompliancePilot:**
-- ❌ Manual compliance checking (error-prone, time-consuming)
-- ❌ Expensive third-party solutions ($50K+ annually)
-- ❌ No real-time surveillance capabilities
-- ❌ Manual report generation (hours of work)
-- ❌ Lack of operational visibility
-- ❌ High risk of regulatory violations
-
-**After CompliancePilot:**
-- ✅ Automated compliance checking (99%+ accuracy)
-- ✅ Low-cost solution ($5K-10K annually)
-- ✅ Advanced surveillance with AI-powered detection
-- ✅ One-click report generation (minutes vs hours)
-- ✅ Real-time operational dashboard
-- ✅ Proactive risk management
-
 ### 📈 Key Benefits
 
 #### 1. **Cost Reduction**
@@ -665,52 +618,24 @@ For support and questions:
 - **Cost Savings**: 70% reduction in compliance costs
 - **User Satisfaction**: 95%+ user satisfaction rating
 
-## 🚀 Getting Started
-
-### For Brokers
-1. **Sign up** for a free trial
-2. **Upload** your existing data files
-3. **Run** pre-built compliance controls
-4. **Generate** your first regulatory report
-5. **Scale** as your business grows
-
-### For Developers
-1. **Fork** the repository
-2. **Set up** the development environment
-3. **Contribute** to the open-source project
-4. **Build** custom controls and integrations
-
-### For Partners
-1. **Integrate** with your existing systems
-2. **White-label** the solution
-3. **Customize** for specific requirements
-4. **Deploy** on-premises or cloud
-
-## 📞 Support & Contact
-
-- **Documentation**: [Full Documentation](docs/)
-- **Issues**: [GitHub Issues](https://github.com/compliance-pilot/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/compliance-pilot/discussions)
-- **Email**: support@compliancepilot.com
-
 ## 🗺️ Roadmap
 
-### Q1 2024
+### V1
 - ✅ Core MVP with basic controls and surveillance
 - ✅ Multi-tenant SaaS deployment
 - ✅ Basic reporting and dashboard
 
-### Q2 2024
+### V2
 - 🔄 Advanced surveillance algorithms
 - 🔄 Real-time streaming data processing
 - 🔄 Mobile app for monitoring
 
-### Q3 2024
+### V3
 - 📋 AML-Light module
 - 📋 Suitability assessment tools
 - 📋 Advanced analytics and ML
 
-### Q4 2024
+### V4
 - 📋 Policy Studio for automated rule creation
 - 📋 Third-party integrations (OMS, RMS)
 - 📋 Enterprise features and SSO
