@@ -1,24 +1,25 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { dbPool } from '../config/database';
 import { jwtConfig } from '../config/database';
-import { LoginRequest, RegisterRequest, AuthToken, User, ApiResponse } from '../types';
+import { LoginRequest, RegisterRequest, AuthToken } from '../types';
 import { authenticateToken } from '../middleware/auth';
+import jwt, { SignOptions } from "jsonwebtoken";
+
+const JWT_SECRET: string = jwtConfig.secret ?? process.env.JWT_SECRET ?? "dev-secret";
 
 const router = express.Router();
 
 // Register new user
-router.post('/register', async (req: express.Request, res: express.Response) => {
+router.post('/register', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { email, password, name, tenant_name, role }: RegisterRequest = req.body;
 
     // Validate input
     if (!email || !password || !name || !tenant_name || !role) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields',
-      });
+      res.status(400).json({ success: false, error: 'Missing required fields' });
+      return;
     }
 
     // Check if user already exists
@@ -30,10 +31,8 @@ router.post('/register', async (req: express.Request, res: express.Response) => 
       );
 
       if (existingUser.rows.length > 0) {
-        return res.status(409).json({
-          success: false,
-          error: 'User already exists',
-        });
+        res.status(409).json({ success: false, error: 'User already exists' });
+        return;
       }
 
       // Create tenant
@@ -73,28 +72,23 @@ router.post('/register', async (req: express.Request, res: express.Response) => 
         },
         message: 'User registered successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Registration failed',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Login user
-router.post('/login', async (req: express.Request, res: express.Response) => {
+router.post('/login', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { email, password }: LoginRequest = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email and password are required',
-      });
+      res.status(400).json({ success: false, error: 'Email and password are required' });
+      return;
     }
 
     const client = await dbPool.connect();
@@ -109,10 +103,8 @@ router.post('/login', async (req: express.Request, res: express.Response) => {
       );
 
       if (result.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          error: 'Invalid credentials',
-        });
+        res.status(401).json({ success: false, error: 'Invalid credentials' });
+        return;
       }
 
       const user = result.rows[0];
@@ -120,10 +112,8 @@ router.post('/login', async (req: express.Request, res: express.Response) => {
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
       if (!isValidPassword) {
-        return res.status(401).json({
-          success: false,
-          error: 'Invalid credentials',
-        });
+        res.status(401).json({ success: false, error: 'Invalid credentials' });
+        return;
       }
 
       // Update last login
@@ -135,7 +125,7 @@ router.post('/login', async (req: express.Request, res: express.Response) => {
       // Generate tokens
       const tokens = generateTokens(user);
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           user: {
@@ -150,20 +140,17 @@ router.post('/login', async (req: express.Request, res: express.Response) => {
         },
         message: 'Login successful',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Login failed',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get current user profile
-router.get('/profile', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.get('/profile', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = (req as any).user.id;
 
@@ -178,15 +165,13 @@ router.get('/profile', authenticateToken, async (req: express.Request, res: expr
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'User not found',
-        });
+        res.status(404).json({ success: false, error: 'User not found' });
+        return;
       }
 
       const user = result.rows[0];
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           id: user.id,
@@ -199,28 +184,23 @@ router.get('/profile', authenticateToken, async (req: express.Request, res: expr
           last_login: user.last_login,
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Profile fetch error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch profile',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Refresh token
-router.post('/refresh', async (req: express.Request, res: express.Response) => {
+router.post('/refresh', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { refresh_token } = req.body;
 
     if (!refresh_token) {
-      return res.status(400).json({
-        success: false,
-        error: 'Refresh token is required',
-      });
+      res.status(400).json({ success: false, error: 'Refresh token is required' });
+      return;
     }
 
     // Verify refresh token
@@ -235,37 +215,30 @@ router.post('/refresh', async (req: express.Request, res: express.Response) => {
       );
 
       if (result.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          error: 'Invalid refresh token',
-        });
+        res.status(401).json({ success: false, error: 'Invalid refresh token' });
+        return;
       }
 
       const user = result.rows[0];
       const tokens = generateTokens(user);
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: tokens,
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    res.status(401).json({
-      success: false,
-      error: 'Invalid refresh token',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Logout (client-side token invalidation)
-router.post('/logout', authenticateToken, (req: express.Request, res: express.Response) => {
-  res.json({
-    success: true,
-    message: 'Logout successful',
-  });
+router.post('/logout', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  res.status(200).json({ success: true, message: 'Logout successful' });
+  return;
 });
 
 // Helper function to generate JWT tokens
@@ -278,13 +251,13 @@ function generateTokens(user: any): AuthToken {
   };
 
   const accessToken = jwt.sign(payload, jwtConfig.secret, {
-    expiresIn: jwtConfig.expiresIn,
-  });
+    expiresIn: jwtConfig.expiresIn,       // e.g. "1h"
+  } as SignOptions);
 
   const refreshToken = jwt.sign(
     { userId: user.id },
-    jwtConfig.secret,
-    { expiresIn: jwtConfig.refreshExpiresIn }
+    JWT_SECRET,
+    { expiresIn: jwtConfig.refreshExpiresIn } as SignOptions // e.g. "7d"
   );
 
   return {

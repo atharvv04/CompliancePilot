@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { dbPool } from '../config/database';
 import { controlsEngine } from '../services/ControlsEngine';
 import { authenticateToken, requireTenant, requireRole } from '../middleware/auth';
@@ -8,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 const router = express.Router();
 
 // Get all controls for tenant
-router.get('/', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const { page = 1, limit = 10, category, status = 'active' } = req.query;
@@ -55,7 +56,7 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
       const countResult = await client.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].count);
 
-      const controls = result.rows.map(row => ({
+      const controls = result.rows.map((row: any) => ({
         id: row.id,
         title: row.title,
         description: row.description,
@@ -70,7 +71,7 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
         created_by: row.created_by_name,
       }));
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: controls,
         pagination: {
@@ -80,20 +81,17 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
           total_pages: Math.ceil(total / Number(limit)),
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get controls error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch controls',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get control by ID
-router.get('/:id', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/:id', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -109,15 +107,13 @@ router.get('/:id', authenticateToken, requireTenant, async (req: express.Request
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Control not found',
-        });
+        res.status(404).json({ success: false, error: 'Control not found' });
+        return;
       }
 
       const control = result.rows[0];
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           id: control.id,
@@ -135,20 +131,17 @@ router.get('/:id', authenticateToken, requireTenant, async (req: express.Request
           created_by: control.created_by_name,
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get control error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch control',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Create new control
-router.post('/', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer']), async (req: express.Request, res: express.Response) => {
+router.post('/', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const userId = (req as any).user.id;
@@ -156,20 +149,16 @@ router.post('/', authenticateToken, requireTenant, requireRole(['admin', 'compli
 
     // Validate required fields
     if (!title || !category || !dataset || !frequency || !severity || !yaml_config) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields',
-      });
+      res.status(400).json({ success: false, error: 'Missing required fields' });
+      return;
     }
 
     // Validate control YAML
     try {
       await controlsEngine.parseControlYAML(yaml_config);
-    } catch (error) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid YAML configuration: ${error.message}`,
-      });
+    } catch (error: unknown) {
+      res.status(400).json({ success: false, error: `Invalid YAML configuration: ${error instanceof Error ? error.message : 'Unknown error'}` });
+      return;
     }
 
     const client = await dbPool.connect();
@@ -210,20 +199,17 @@ router.post('/', authenticateToken, requireTenant, requireRole(['admin', 'compli
         },
         message: 'Control created successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Create control error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create control',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Update control
-router.put('/:id', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer']), async (req: express.Request, res: express.Response) => {
+router.put('/:id', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -233,11 +219,9 @@ router.put('/:id', authenticateToken, requireTenant, requireRole(['admin', 'comp
     if (yaml_config) {
       try {
         await controlsEngine.parseControlYAML(yaml_config);
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          error: `Invalid YAML configuration: ${error.message}`,
-        });
+      } catch (error: any) {
+        res.status(400).json({ success: false, error: `Invalid YAML configuration: ${error.message}` });
+        return;
       }
     }
 
@@ -250,10 +234,8 @@ router.put('/:id', authenticateToken, requireTenant, requireRole(['admin', 'comp
       );
 
       if (existingResult.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Control not found',
-        });
+        res.status(404).json({ success: false, error: 'Control not found' });
+        return;
       }
 
       // Build update query dynamically
@@ -296,10 +278,8 @@ router.put('/:id', authenticateToken, requireTenant, requireRole(['admin', 'comp
       }
 
       if (updates.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'No fields to update',
-        });
+        res.status(400).json({ success: false, error: 'No fields to update' });
+        return;
       }
 
       updates.push(`updated_at = NOW()`);
@@ -312,7 +292,7 @@ router.put('/:id', authenticateToken, requireTenant, requireRole(['admin', 'comp
 
       const control = result.rows[0];
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           id: control.id,
@@ -328,20 +308,17 @@ router.put('/:id', authenticateToken, requireTenant, requireRole(['admin', 'comp
         },
         message: 'Control updated successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Update control error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update control',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Execute control
-router.post('/:id/execute', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer']), async (req: express.Request, res: express.Response) => {
+router.post('/:id/execute', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const { dataset_id } = req.body;
@@ -349,31 +326,26 @@ router.post('/:id/execute', authenticateToken, requireTenant, requireRole(['admi
     const userId = (req as any).user.id;
 
     if (!dataset_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Dataset ID is required',
-      });
+      res.status(400).json({ success: false, error: 'Dataset ID is required' });
+      return;
     }
 
     // Execute control
     const controlRun = await controlsEngine.executeControl(id, dataset_id, tenantId, userId);
 
-    res.json({
+    res.status(200).json({
       success: true,
       data: controlRun,
       message: 'Control executed successfully',
     });
-  } catch (error) {
-    console.error('Execute control error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to execute control',
-    });
+    return;
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get control runs
-router.get('/:id/runs', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/:id/runs', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -401,7 +373,7 @@ router.get('/:id/runs', authenticateToken, requireTenant, async (req: express.Re
       );
       const total = parseInt(countResult.rows[0].count);
 
-      const runs = result.rows.map(row => ({
+      const runs = result.rows.map((row: any) => ({
         id: row.id,
         status: row.status,
         started_at: row.started_at,
@@ -413,7 +385,7 @@ router.get('/:id/runs', authenticateToken, requireTenant, async (req: express.Re
         triggered_by: row.triggered_by_name,
       }));
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: runs,
         pagination: {
@@ -423,20 +395,17 @@ router.get('/:id/runs', authenticateToken, requireTenant, async (req: express.Re
           total_pages: Math.ceil(total / Number(limit)),
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get control runs error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch control runs',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Delete control
-router.delete('/:id', authenticateToken, requireTenant, requireRole(['admin']), async (req: express.Request, res: express.Response) => {
+router.delete('/:id', authenticateToken, requireTenant, requireRole(['admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -449,25 +418,17 @@ router.delete('/:id', authenticateToken, requireTenant, requireRole(['admin']), 
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Control not found',
-        });
+        res.status(404).json({ success: false, error: 'Control not found' });
+        return;
       }
 
-      res.json({
-        success: true,
-        message: 'Control deleted successfully',
-      });
+      res.status(200).json({ success: true, message: 'Control deleted successfully' });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Delete control error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete control',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 

@@ -1,11 +1,12 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { healthCheck } from '../config/database';
 import { minioService } from '../services/MinIOService';
 
 const router = express.Router();
 
 // Health check endpoint
-router.get('/', async (req: express.Request, res: express.Response) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const dbHealth = await healthCheck();
     const minioHealth = await minioService.healthCheck();
@@ -22,19 +23,14 @@ router.get('/', async (req: express.Request, res: express.Response) => {
         minio: minioHealth,
       },
     });
-  } catch (error) {
-    console.error('Health check error:', error);
-    res.status(503).json({
-      success: false,
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
-      error: error.message,
-    });
+    return;
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Detailed health check
-router.get('/detailed', async (req: express.Request, res: express.Response) => {
+router.get('/detailed', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const dbHealth = await healthCheck();
     const minioHealth = await minioService.healthCheck();
@@ -57,14 +53,9 @@ router.get('/detailed', async (req: express.Request, res: express.Response) => {
         },
       },
     });
-  } catch (error) {
-    console.error('Detailed health check error:', error);
-    res.status(503).json({
-      success: false,
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
-      error: error.message,
-    });
+    return;
+  } catch (error: unknown) {
+    next(error);
   }
 });
 

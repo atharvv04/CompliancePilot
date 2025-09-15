@@ -1,7 +1,10 @@
-FROM node:18-alpine
+FROM node:20-bullseye-slim
 
 # Set working directory
 WORKDIR /app
+
+ARG VITE_API_URL=http://backend:3001/api
+ENV VITE_API_URL=$VITE_API_URL
 
 # Copy package files
 COPY package*.json ./

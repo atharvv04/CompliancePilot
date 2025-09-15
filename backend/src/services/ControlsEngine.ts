@@ -37,7 +37,7 @@ export class ControlsEngine {
       return control;
     } catch (error) {
       console.error('Failed to parse control YAML:', error);
-      throw new Error(`Invalid YAML configuration: ${error.message}`);
+      throw new Error(`Invalid YAML configuration: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -80,11 +80,26 @@ export class ControlsEngine {
 
       // Update control run with results
       const executionTime = Date.now() - startTime;
+      const computedPassed =
+        typeof (results as any).passed === 'boolean'
+          ? (results as any).passed
+          : Array.isArray((results as any).violations)
+            ? (results as any).violations.length === 0
+            : true;
+
+      const resultCount = (results as any).result_count ?? 0;
+      const evidenceCount = (results as any).evidence_count ?? resultCount;
+      const summary = (results as any).summary ?? this.generateSummary(controlDef, resultCount, computedPassed);
+
       const finalResults: ControlResults = {
-        ...results,
+        passed: computedPassed,
+        result_count: resultCount,
+        evidence_count: evidenceCount,
         execution_time_ms: executionTime,
         evidence_files: evidenceFiles,
+        summary,
       };
+      
 
       await this.updateControlRun(runId, {
         status: 'completed' as RunStatus,
@@ -107,7 +122,7 @@ export class ControlsEngine {
       await this.updateControlRun(runId, {
         status: 'failed' as RunStatus,
         completed_at: new Date(),
-        error_message: error.message,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
       });
 
       throw error;
@@ -151,7 +166,7 @@ export class ControlsEngine {
       }
     } catch (error) {
       console.error('SQL execution failed:', error);
-      throw new Error(`SQL execution failed: ${error.message}`);
+      throw new Error(`SQL execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

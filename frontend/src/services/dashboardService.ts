@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ApiResponse, DashboardStats, ControlSummary, ExceptionSummary } from '../types';
+import { DashboardStats, ControlSummary, ExceptionSummary } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 

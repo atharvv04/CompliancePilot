@@ -1,6 +1,6 @@
-import { useState, useEffect, createContext, useContext } from 'react';
-import { User, LoginRequest, RegisterRequest, AuthToken } from '../types';
-import { authService } from '../services/authService';
+import { useState, useEffect, createContext, useContext, type ReactNode } from "react";
+import { User, LoginRequest, RegisterRequest, AuthToken } from "@/types";
+import { authService } from "@/services/authService";
 
 interface AuthContextType {
   user: User | null;
@@ -21,7 +21,7 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,33 +47,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (credentials: LoginRequest) => {
     try {
-      const response = await authService.login(credentials);
-      const { user: userData, access_token, refresh_token } = response.data;
-      
-      localStorage.setItem('access_token', access_token);
-      localStorage.setItem('refresh_token', refresh_token);
-      
+      const resp = await authService.login(credentials); // ApiResponse<{user} & AuthToken>
+      const { user: userData, access_token, refresh_token } = resp.data as { user: User } & AuthToken;
+  
+      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("refresh_token", refresh_token);
       setUser(userData);
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error("Login failed:", error);
       throw error;
     }
   };
 
   const register = async (data: RegisterRequest) => {
     try {
-      const response = await authService.register(data);
-      const { user: userData, access_token, refresh_token } = response.data;
-      
-      localStorage.setItem('access_token', access_token);
-      localStorage.setItem('refresh_token', refresh_token);
-      
+      const resp = await authService.register(data); // ApiResponse<{user} & AuthToken>
+      const { user: userData, access_token, refresh_token } = resp.data as { user: User } & AuthToken;
+  
+      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("refresh_token", refresh_token);
       setUser(userData);
     } catch (error) {
-      console.error('Registration failed:', error);
+      console.error("Registration failed:", error);
       throw error;
     }
   };
+  
 
   const logout = () => {
     localStorage.removeItem('access_token');
@@ -83,22 +82,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshToken = async () => {
     try {
-      const refreshTokenValue = localStorage.getItem('refresh_token');
-      if (!refreshTokenValue) {
-        throw new Error('No refresh token available');
-      }
-
-      const response = await authService.refreshToken(refreshTokenValue);
-      const { access_token, refresh_token } = response.data;
-      
-      localStorage.setItem('access_token', access_token);
-      localStorage.setItem('refresh_token', refresh_token);
+      const refreshTokenValue = localStorage.getItem("refresh_token");
+      if (!refreshTokenValue) throw new Error("No refresh token available");
+  
+      const resp = await authService.refreshToken(refreshTokenValue); // ApiResponse<AuthToken>
+      const { access_token, refresh_token } = resp.data as AuthToken;
+  
+      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("refresh_token", refresh_token);
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      console.error("Token refresh failed:", error);
       logout();
       throw error;
     }
   };
+  
 
   const value: AuthContextType = {
     user,

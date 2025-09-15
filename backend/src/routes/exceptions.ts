@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { dbPool } from '../config/database';
 import { authenticateToken, requireTenant, requireRole } from '../middleware/auth';
 import { Exception, ExceptionType, ExceptionStatus, ExceptionSeverity, ApiResponse } from '../types';
@@ -7,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 const router = express.Router();
 
 // Get all exceptions
-router.get('/', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const { page = 1, limit = 10, status, type, severity } = req.query;
@@ -64,7 +65,7 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
       const countResult = await client.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].count);
 
-      const exceptions = result.rows.map(row => ({
+      const exceptions = result.rows.map((row: any)=> ({
         id: row.id,
         type: row.type,
         title: row.title,
@@ -79,7 +80,7 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
         attachments: JSON.parse(row.attachments || '[]'),
       }));
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: exceptions,
         pagination: {
@@ -89,20 +90,17 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
           total_pages: Math.ceil(total / Number(limit)),
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get exceptions error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch exceptions',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get exception by ID
-router.get('/:id', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/:id', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -118,15 +116,13 @@ router.get('/:id', authenticateToken, requireTenant, async (req: express.Request
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Exception not found',
-        });
+        res.status(404).json({ success: false, error: 'Exception not found' });
+        return;
       }
 
       const exception = result.rows[0];
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           id: exception.id,
@@ -143,29 +139,24 @@ router.get('/:id', authenticateToken, requireTenant, async (req: express.Request
           attachments: JSON.parse(exception.attachments || '[]'),
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get exception error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch exception',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Create exception
-router.post('/', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer', 'operations_head']), async (req: express.Request, res: express.Response) => {
+router.post('/', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer', 'operations_head']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const { type, title, description, severity, due_date, owner } = req.body;
 
     if (!type || !title || !description || !severity) {
-      return res.status(400).json({
-        success: false,
-        error: 'Type, title, description, and severity are required',
-      });
+      res.status(400).json({ success: false, error: 'Type, title, description, and severity are required' });
+      return;
     }
 
     const client = await dbPool.connect();
@@ -193,20 +184,17 @@ router.post('/', authenticateToken, requireTenant, requireRole(['admin', 'compli
         },
         message: 'Exception created successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Create exception error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create exception',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Update exception
-router.patch('/:id', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer', 'operations_head']), async (req: express.Request, res: express.Response) => {
+router.patch('/:id', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer', 'operations_head']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -238,10 +226,8 @@ router.patch('/:id', authenticateToken, requireTenant, requireRole(['admin', 'co
       }
 
       if (updates.length === 1) { // Only updated_at
-        return res.status(400).json({
-          success: false,
-          error: 'No fields to update',
-        });
+        res.status(400).json({ success: false, error: 'No fields to update' });
+        return;
       }
 
       values.push(id, tenantId);
@@ -252,31 +238,26 @@ router.patch('/:id', authenticateToken, requireTenant, requireRole(['admin', 'co
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Exception not found',
-        });
+        res.status(404).json({ success: false, error: 'Exception not found' });
+        return;
       }
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: result.rows[0],
         message: 'Exception updated successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Update exception error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update exception',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Delete exception
-router.delete('/:id', authenticateToken, requireTenant, requireRole(['admin']), async (req: express.Request, res: express.Response) => {
+router.delete('/:id', authenticateToken, requireTenant, requireRole(['admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -289,25 +270,17 @@ router.delete('/:id', authenticateToken, requireTenant, requireRole(['admin']), 
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Exception not found',
-        });
+        res.status(404).json({ success: false, error: 'Exception not found' });
+        return;
       }
 
-      res.json({
-        success: true,
-        message: 'Exception deleted successfully',
-      });
+      res.status(200).json({ success: true, message: 'Exception deleted successfully' });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Delete exception error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete exception',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 

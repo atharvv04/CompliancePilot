@@ -1,21 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
-  Box,
-  Card,
-  CardContent,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  Link,
-  Container,
-  Paper,
-} from '@mui/material';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
-import { useAuth } from '../hooks/useAuth';
-import { LoginRequest, RegisterRequest } from '../types';
+  Box, TextField, Button, Typography, Alert, Link, Container, Paper,
+} from "@mui/material";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
+import { useAuth } from "@/hooks/useAuth";
+import type { LoginRequest, RegisterRequest } from "@/types";
+
 
 const loginSchema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
@@ -41,26 +33,28 @@ const Login: React.FC = () => {
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm<LoginRequest & RegisterRequest>({
-    resolver: yupResolver(isLogin ? loginSchema : registerSchema),
+  } = useForm<RegisterRequest>({
+    resolver: yupResolver(isLogin ? loginSchema : registerSchema) as any, // resolver matches rendered fields
   });
+  
 
-  const onSubmit = async (data: LoginRequest | RegisterRequest) => {
+  const onSubmit: SubmitHandler<RegisterRequest> = async (form) => {
     setLoading(true);
     setError(null);
-
     try {
       if (isLogin) {
-        await login(data as LoginRequest);
+        const data: LoginRequest = { email: form.email, password: form.password };
+        await login(data);
       } else {
-        await register(data as RegisterRequest);
+        await register(form); // full register payload
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'An error occurred');
+      setError(err?.response?.data?.error || "An error occurred");
     } finally {
       setLoading(false);
     }
   };
+  
 
   const toggleMode = () => {
     setIsLogin(!isLogin);

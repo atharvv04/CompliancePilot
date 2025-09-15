@@ -1,34 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
-  Box,
-  Typography,
-  Button,
-  Card,
-  CardContent,
-  Grid,
-  Chip,
-  IconButton,
-  Menu,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  Alert,
-} from '@mui/material';
+  Box, Typography, Button, Card, CardContent, Grid, Chip, IconButton, Menu, MenuItem,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, Alert,
+} from "@mui/material";
 import {
-  Add as AddIcon,
-  MoreVert as MoreVertIcon,
-  Download as DownloadIcon,
-  Delete as DeleteIcon,
-  Upload as UploadIcon,
-} from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { Dataset, DatasetType } from '../types';
+  Add as AddIcon, MoreVert as MoreVertIcon, Download as DownloadIcon, Delete as DeleteIcon,
+} from "@mui/icons-material";
+import { useQuery, useQueryClient } from "react-query";
+import { Dataset, DatasetType } from "@/types";
+
+type ColumnType = "string" | "number" | "boolean" | "date";
+
+const normalizeColumns = (
+  cols: Array<{ name: string; type: string; nullable: boolean }>
+) =>
+  cols.map((c) => ({
+    name: c.name,
+    type: (["string", "number", "boolean", "date"].includes(c.type)
+      ? (c.type as ColumnType)
+      : "string"),
+    nullable: !!c.nullable,
+  }));
 
 const Datasets: React.FC = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -55,14 +47,14 @@ const Datasets: React.FC = () => {
         uploaded_at: '2024-01-15T10:30:00Z',
         uploaded_by: 'John Doe',
         schema: {
-          columns: [
+          columns: normalizeColumns([
             { name: 'order_id', type: 'string', nullable: false },
             { name: 'client_id', type: 'string', nullable: false },
             { name: 'symbol', type: 'string', nullable: false },
             { name: 'side', type: 'string', nullable: false },
             { name: 'price', type: 'number', nullable: false },
             { name: 'quantity', type: 'number', nullable: false },
-          ],
+          ]),
           primary_key: ['order_id'],
           indexes: [],
         },
@@ -75,7 +67,7 @@ const Datasets: React.FC = () => {
         uploaded_at: '2024-01-15T10:35:00Z',
         uploaded_by: 'Jane Smith',
         schema: {
-          columns: [
+          columns: normalizeColumns([
             { name: 'trade_id', type: 'string', nullable: false },
             { name: 'order_id', type: 'string', nullable: false },
             { name: 'client_id', type: 'string', nullable: false },
@@ -83,7 +75,7 @@ const Datasets: React.FC = () => {
             { name: 'side', type: 'string', nullable: false },
             { name: 'price', type: 'number', nullable: false },
             { name: 'quantity', type: 'number', nullable: false },
-          ],
+          ]),
           primary_key: ['trade_id'],
           indexes: [],
         },

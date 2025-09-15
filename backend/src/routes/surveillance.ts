@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { dbPool } from '../config/database';
 import { authenticateToken, requireTenant, requireRole } from '../middleware/auth';
 import { SurveillanceCase, DetectionType, CaseStatus, CaseSeverity, ApiResponse } from '../types';
@@ -7,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 const router = express.Router();
 
 // Get all surveillance cases
-router.get('/cases', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/cases', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const { page = 1, limit = 10, status, detection_type } = req.query;
@@ -55,7 +56,7 @@ router.get('/cases', authenticateToken, requireTenant, async (req: express.Reque
       const countResult = await client.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].count);
 
-      const cases = result.rows.map(row => ({
+      const cases = result.rows.map((row: any) => ({
         id: row.id,
         detection_type: row.detection_type,
         title: row.title,
@@ -71,7 +72,7 @@ router.get('/cases', authenticateToken, requireTenant, async (req: express.Reque
         assigned_to: row.assigned_to_name,
       }));
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: cases,
         pagination: {
@@ -81,20 +82,17 @@ router.get('/cases', authenticateToken, requireTenant, async (req: express.Reque
           total_pages: Math.ceil(total / Number(limit)),
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get surveillance cases error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch surveillance cases',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get case by ID
-router.get('/cases/:id', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/cases/:id', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -110,15 +108,13 @@ router.get('/cases/:id', authenticateToken, requireTenant, async (req: express.R
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Case not found',
-        });
+        res.status(404).json({ success: false, error: 'Case not found' });
+        return;
       }
 
       const caseData = result.rows[0];
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           id: caseData.id,
@@ -136,30 +132,25 @@ router.get('/cases/:id', authenticateToken, requireTenant, async (req: express.R
           assigned_to: caseData.assigned_to_name,
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get surveillance case error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch surveillance case',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Update case status
-router.patch('/cases/:id/status', authenticateToken, requireTenant, requireRole(['admin', 'surveillance_analyst']), async (req: express.Request, res: express.Response) => {
+router.patch('/cases/:id/status', authenticateToken, requireTenant, requireRole(['admin', 'surveillance_analyst']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const { status, narrative } = req.body;
     const tenantId = (req as any).tenantId;
 
     if (!status) {
-      return res.status(400).json({
-        success: false,
-        error: 'Status is required',
-      });
+      res.status(400).json({ success: false, error: 'Status is required' });
+      return;
     }
 
     const client = await dbPool.connect();
@@ -180,41 +171,34 @@ router.patch('/cases/:id/status', authenticateToken, requireTenant, requireRole(
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Case not found',
-        });
+        res.status(404).json({ success: false, error: 'Case not found' });
+        return;
       }
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: result.rows[0],
         message: 'Case status updated successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Update case status error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update case status',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Assign case
-router.patch('/cases/:id/assign', authenticateToken, requireTenant, requireRole(['admin', 'surveillance_analyst']), async (req: express.Request, res: express.Response) => {
+router.patch('/cases/:id/assign', authenticateToken, requireTenant, requireRole(['admin', 'surveillance_analyst']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const { assigned_to } = req.body;
     const tenantId = (req as any).tenantId;
 
     if (!assigned_to) {
-      return res.status(400).json({
-        success: false,
-        error: 'Assigned user ID is required',
-      });
+      res.status(400).json({ success: false, error: 'Assigned user ID is required' });
+      return;
     }
 
     const client = await dbPool.connect();
@@ -225,46 +209,39 @@ router.patch('/cases/:id/assign', authenticateToken, requireTenant, requireRole(
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Case not found',
-        });
+        res.status(404).json({ success: false, error: 'Case not found' });
+        return;
       }
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: result.rows[0],
         message: 'Case assigned successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Assign case error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to assign case',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Run surveillance scan
-router.post('/scan', authenticateToken, requireTenant, requireRole(['admin', 'surveillance_analyst']), async (req: express.Request, res: express.Response) => {
+router.post('/scan', authenticateToken, requireTenant, requireRole(['admin', 'surveillance_analyst']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { dataset_id, detection_types } = req.body;
     const tenantId = (req as any).tenantId;
     const userId = (req as any).user.id;
 
     if (!dataset_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Dataset ID is required',
-      });
+      res.status(400).json({ success: false, error: 'Dataset ID is required' });
+      return;
     }
 
     // TODO: Implement actual surveillance scanning logic
     // For now, return a placeholder response
-    res.json({
+    res.status(200).json({
       success: true,
       data: {
         scan_id: uuidv4(),
@@ -273,12 +250,9 @@ router.post('/scan', authenticateToken, requireTenant, requireRole(['admin', 'su
         message: 'Surveillance scan completed (placeholder)',
       },
     });
-  } catch (error) {
-    console.error('Surveillance scan error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to run surveillance scan',
-    });
+    return;
+  } catch (error: unknown) {
+    next(error);
   }
 });
 

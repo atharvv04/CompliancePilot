@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { dbPool } from '../config/database';
 import { minioService } from '../services/MinIOService';
 import { authenticateToken, requireTenant, requireRole } from '../middleware/auth';
@@ -9,7 +10,7 @@ import * as crypto from 'crypto';
 const router = express.Router();
 
 // Get all reports
-router.get('/', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const { page = 1, limit = 10, type } = req.query;
@@ -49,7 +50,7 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
       const countResult = await client.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].count);
 
-      const reports = result.rows.map(row => ({
+      const reports = result.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
         type: row.type,
@@ -61,7 +62,7 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
         created_by: row.created_by_name,
       }));
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: reports,
         pagination: {
@@ -71,20 +72,17 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
           total_pages: Math.ceil(total / Number(limit)),
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get reports error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch reports',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get report templates
-router.get('/templates', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/templates', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const client = await dbPool.connect();
     try {
@@ -92,7 +90,7 @@ router.get('/templates', authenticateToken, requireTenant, async (req: express.R
         'SELECT * FROM report_templates WHERE is_active = true ORDER BY name'
       );
 
-      const templates = result.rows.map(row => ({
+      const templates = result.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
         type: row.type,
@@ -101,34 +99,29 @@ router.get('/templates', authenticateToken, requireTenant, async (req: express.R
         parameters: JSON.parse(row.parameters || '[]'),
       }));
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: templates,
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get report templates error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch report templates',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Generate report
-router.post('/generate', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer']), async (req: express.Request, res: express.Response) => {
+router.post('/generate', authenticateToken, requireTenant, requireRole(['admin', 'compliance_officer']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { template_id, name, parameters = {} } = req.body;
     const tenantId = (req as any).tenantId;
     const userId = (req as any).user.id;
 
     if (!template_id || !name) {
-      return res.status(400).json({
-        success: false,
-        error: 'Template ID and name are required',
-      });
+      res.status(400).json({ success: false, error: 'Template ID and name are required' });
+      return;
     }
 
     const client = await dbPool.connect();
@@ -140,10 +133,8 @@ router.post('/generate', authenticateToken, requireTenant, requireRole(['admin',
       );
 
       if (templateResult.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Template not found',
-        });
+        res.status(404).json({ success: false, error: 'Template not found' });
+        return;
       }
 
       const template = templateResult.rows[0];
@@ -179,7 +170,7 @@ router.post('/generate', authenticateToken, requireTenant, requireRole(['admin',
         ['completed', uploadResult.path, reportHash, signature, reportId]
       );
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           id: reportId,
@@ -192,20 +183,17 @@ router.post('/generate', authenticateToken, requireTenant, requireRole(['admin',
         },
         message: 'Report generated successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Generate report error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate report',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Download report
-router.get('/:id/download', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/:id/download', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -218,10 +206,8 @@ router.get('/:id/download', authenticateToken, requireTenant, async (req: expres
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Report not found',
-        });
+        res.status(404).json({ success: false, error: 'Report not found' });
+        return;
       }
 
       const report = result.rows[0];
@@ -242,20 +228,17 @@ router.get('/:id/download', authenticateToken, requireTenant, async (req: expres
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `attachment; filename="${report.name}.${extension}"`);
       res.send(fileBuffer);
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Download report error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to download report',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get report by ID
-router.get('/:id', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/:id', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -272,15 +255,13 @@ router.get('/:id', authenticateToken, requireTenant, async (req: express.Request
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Report not found',
-        });
+        res.status(404).json({ success: false, error: 'Report not found' });
+        return;
       }
 
       const report = result.rows[0];
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           id: report.id,
@@ -295,15 +276,12 @@ router.get('/:id', authenticateToken, requireTenant, async (req: express.Request
           created_by: report.created_by_name,
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get report error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch report',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 

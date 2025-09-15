@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import csv from 'csv-parser';
 import * as XLSX from 'xlsx';
@@ -28,33 +29,27 @@ const upload = multer({
 });
 
 // Upload dataset file
-router.post('/upload', authenticateToken, requireTenant, upload.single('file'), async (req: express.Request, res: express.Response) => {
+router.post('/upload', authenticateToken, requireTenant, upload.single('file'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const userId = (req as any).user.id;
     const { name, type, description } = req.body;
 
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'No file uploaded',
-      });
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
     }
 
     if (!name || !type) {
-      return res.status(400).json({
-        success: false,
-        error: 'Dataset name and type are required',
-      });
+      res.status(400).json({ success: false, error: 'Dataset name and type are required' });
+      return;
     }
 
     // Validate dataset type
     const validTypes: DatasetType[] = ['orders', 'trades', 'ledger', 'ucc', 'recon_bank', 'recon_dp', 'nbbo'];
     if (!validTypes.includes(type as DatasetType)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid dataset type',
-      });
+      res.status(400).json({ success: false, error: 'Invalid dataset type' });
+      return;
     }
 
     // Parse file to get schema and row count
@@ -103,20 +98,17 @@ router.post('/upload', authenticateToken, requireTenant, upload.single('file'), 
         },
         message: 'Dataset uploaded successfully',
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Dataset upload error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to upload dataset',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get all datasets for tenant
-router.get('/', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const { page = 1, limit = 10, type } = req.query;
@@ -156,7 +148,7 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
       const countResult = await client.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].count);
 
-      const datasets = result.rows.map(row => ({
+      const datasets = result.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
         type: row.type,
@@ -166,7 +158,7 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
         uploaded_by: row.uploaded_by_name,
       }));
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: datasets,
         pagination: {
@@ -176,20 +168,17 @@ router.get('/', authenticateToken, requireTenant, async (req: express.Request, r
           total_pages: Math.ceil(total / Number(limit)),
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get datasets error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch datasets',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Get dataset by ID
-router.get('/:id', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/:id', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -205,15 +194,13 @@ router.get('/:id', authenticateToken, requireTenant, async (req: express.Request
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Dataset not found',
-        });
+        res.status(404).json({ success: false, error: 'Dataset not found' });
+        return;
       }
 
       const dataset = result.rows[0];
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: {
           id: dataset.id,
@@ -225,20 +212,17 @@ router.get('/:id', authenticateToken, requireTenant, async (req: express.Request
           uploaded_by: dataset.uploaded_by_name,
         },
       });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Get dataset error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch dataset',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Download dataset file
-router.get('/:id/download', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.get('/:id/download', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -251,10 +235,8 @@ router.get('/:id/download', authenticateToken, requireTenant, async (req: expres
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Dataset not found',
-        });
+        res.status(404).json({ success: false, error: 'Dataset not found' });
+        return;
       }
 
       const filePath = result.rows[0].file_path;
@@ -263,20 +245,17 @@ router.get('/:id/download', authenticateToken, requireTenant, async (req: expres
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="dataset_${id}.csv"`);
       res.send(fileBuffer);
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Download dataset error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to download dataset',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 
 // Delete dataset
-router.delete('/:id', authenticateToken, requireTenant, async (req: express.Request, res: express.Response) => {
+router.delete('/:id', authenticateToken, requireTenant, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const tenantId = (req as any).tenantId;
@@ -290,10 +269,8 @@ router.delete('/:id', authenticateToken, requireTenant, async (req: express.Requ
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Dataset not found',
-        });
+        res.status(404).json({ success: false, error: 'Dataset not found' });
+        return;
       }
 
       const filePath = result.rows[0].file_path;
@@ -307,19 +284,13 @@ router.delete('/:id', authenticateToken, requireTenant, async (req: express.Requ
         [id, tenantId]
       );
 
-      res.json({
-        success: true,
-        message: 'Dataset deleted successfully',
-      });
+      res.status(200).json({ success: true, message: 'Dataset deleted successfully' });
+      return;
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Delete dataset error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete dataset',
-    });
+  } catch (error: unknown) {
+    next(error);
   }
 });
 

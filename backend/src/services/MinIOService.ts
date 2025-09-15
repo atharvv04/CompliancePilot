@@ -1,7 +1,7 @@
-import { Client } from 'minio';
-import { v4 as uuidv4 } from 'uuid';
-import { minioConfig } from '../config/database';
-import { FileUploadResult } from '../types';
+import { Client } from "minio";
+import { v4 as uuidv4 } from "uuid";
+import { minioConfig } from "../config/database";
+import { FileUploadResult } from "../types";
 
 export class MinIOService {
   private client: Client;
@@ -9,21 +9,24 @@ export class MinIOService {
 
   constructor() {
     this.client = new Client(minioConfig);
-    this.bucketName = 'compliance-pilot';
+    // ensure a definite string; use env or default
+    this.bucketName = process.env.MINIO_BUCKET ?? "compliance-pilot";
   }
 
   async initialize(): Promise<void> {
     try {
-      // Check if bucket exists, create if not
       const bucketExists = await this.client.bucketExists(this.bucketName);
       if (!bucketExists) {
-        await this.client.makeBucket(this.bucketName, 'us-east-1');
+        await this.client.makeBucket(this.bucketName, "us-east-1");
         console.log(`✅ MinIO bucket '${this.bucketName}' created`);
       } else {
         console.log(`✅ MinIO bucket '${this.bucketName}' exists`);
       }
-    } catch (error) {
-      console.error('❌ MinIO initialization failed:', error);
+    } catch (error: unknown) {
+      console.error(
+        "❌ MinIO initialization failed:",
+        error instanceof Error ? error.message : String(error)
+      );
       throw error;
     }
   }
@@ -33,25 +36,19 @@ export class MinIOService {
     filename: string,
     tenantId: string,
     datasetType: string,
-    contentType: string = 'application/octet-stream'
+    contentType: string = "application/octet-stream"
   ): Promise<FileUploadResult> {
     try {
       const fileId = uuidv4();
-      const date = new Date().toISOString().split('T')[0];
+      const date = new Date().toISOString().split("T")[0];
       const objectName = `${tenantId}/${datasetType}/${date}/${fileId}_${filename}`;
 
-      await this.client.putObject(
-        this.bucketName,
-        objectName,
-        file,
-        file.length,
-        {
-          'Content-Type': contentType,
-          'X-Tenant-ID': tenantId,
-          'X-Dataset-Type': datasetType,
-          'X-Upload-Date': new Date().toISOString(),
-        }
-      );
+      await this.client.putObject(this.bucketName, objectName, file, file.length, {
+        "Content-Type": contentType,
+        "X-Tenant-ID": tenantId,
+        "X-Dataset-Type": datasetType,
+        "X-Upload-Date": new Date().toISOString(),
+      });
 
       return {
         file_id: fileId,
@@ -61,9 +58,9 @@ export class MinIOService {
         path: objectName,
         uploaded_at: new Date(),
       };
-    } catch (error) {
-      console.error('File upload failed:', error);
-      throw new Error(`Failed to upload file: ${error.message}`);
+    } catch (error: unknown) {
+      console.error("File upload failed:", error instanceof Error ? error.message : String(error));
+      throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -73,61 +70,61 @@ export class MinIOService {
       const chunks: Buffer[] = [];
 
       return new Promise((resolve, reject) => {
-        stream.on('data', (chunk) => chunks.push(chunk));
-        stream.on('end', () => resolve(Buffer.concat(chunks)));
-        stream.on('error', reject);
+        stream.on("data", (chunk) => chunks.push(chunk));
+        stream.on("end", () => resolve(Buffer.concat(chunks)));
+        stream.on("error", reject);
       });
-    } catch (error) {
-      console.error('File download failed:', error);
-      throw new Error(`Failed to download file: ${error.message}`);
+    } catch (error: unknown) {
+      console.error("File download failed:", error instanceof Error ? error.message : String(error));
+      throw new Error(`Failed to download file: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   async deleteFile(objectName: string): Promise<void> {
     try {
       await this.client.removeObject(this.bucketName, objectName);
-    } catch (error) {
-      console.error('File deletion failed:', error);
-      throw new Error(`Failed to delete file: ${error.message}`);
+    } catch (error: unknown) {
+      console.error("File deletion failed:", error instanceof Error ? error.message : String(error));
+      throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   async getFileUrl(objectName: string, expiresIn: number = 3600): Promise<string> {
     try {
       return await this.client.presignedGetObject(this.bucketName, objectName, expiresIn);
-    } catch (error) {
-      console.error('Failed to generate file URL:', error);
-      throw new Error(`Failed to generate file URL: ${error.message}`);
+    } catch (error: unknown) {
+      console.error("Failed to generate file URL:", error instanceof Error ? error.message : String(error));
+      throw new Error(`Failed to generate file URL: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   async listFiles(tenantId: string, prefix?: string): Promise<string[]> {
     try {
       const objects: string[] = [];
-      const stream = this.client.listObjects(this.bucketName, `${tenantId}/${prefix || ''}`, true);
+      const stream = this.client.listObjects(this.bucketName, `${tenantId}/${prefix ?? ""}`, true);
 
       return new Promise((resolve, reject) => {
-        stream.on('data', (obj) => objects.push(obj.name));
-        stream.on('end', () => resolve(objects));
-        stream.on('error', reject);
+        stream.on("data", (obj: any) => objects.push(obj.name as string));
+        stream.on("end", () => resolve(objects));
+        stream.on("error", reject);
       });
-    } catch (error) {
-      console.error('Failed to list files:', error);
-      throw new Error(`Failed to list files: ${error.message}`);
+    } catch (error: unknown) {
+      console.error("Failed to list files:", error instanceof Error ? error.message : String(error));
+      throw new Error(`Failed to list files: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   private generateHash(buffer: Buffer): string {
-    const crypto = require('crypto');
-    return crypto.createHash('sha256').update(buffer).digest('hex');
+    const crypto = require("crypto");
+    return crypto.createHash("sha256").update(buffer).digest("hex");
   }
 
   async healthCheck(): Promise<boolean> {
     try {
       await this.client.bucketExists(this.bucketName);
       return true;
-    } catch (error) {
-      console.error('MinIO health check failed:', error);
+    } catch (error: unknown) {
+      console.error("MinIO health check failed:", error instanceof Error ? error.message : String(error));
       return false;
     }
   }

@@ -16,7 +16,6 @@ import {
 import {
   Security as SecurityIcon,
   Warning as WarningIcon,
-  Description as DescriptionIcon,
   Search as SearchIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -27,7 +26,7 @@ import { dashboardService } from '../services/dashboardService';
 import { ControlSummary, ExceptionSummary } from '../types';
 
 const Dashboard: React.FC = () => {
-  const { data: stats, isLoading: statsLoading } = useQuery('dashboard-stats', dashboardService.getStats);
+  const { data: stats, isLoading: _statsLoading } = useQuery('dashboard-stats', dashboardService.getStats);
   const { data: recentControls, isLoading: controlsLoading } = useQuery('recent-controls', dashboardService.getRecentControls);
   const { data: recentExceptions, isLoading: exceptionsLoading } = useQuery('recent-exceptions', dashboardService.getRecentExceptions);
 
